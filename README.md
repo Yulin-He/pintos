@@ -10,13 +10,13 @@ Source code is adopted from the open source project at [Pintos](https://pintos-o
 ## Installation
 Refer to the official documentation Appendix G Installing Pintos for installation.
 
-1. Downloading pintos and bochs
+**1. Downloading pintos and bochs**
 ```bash
 git clone git://pintos-os.org/pintos-anon
 wget https://sourceforge.net/projects/bochs/files/bochs/2.6.2/bochs-2.6.2.tar.gz
 ```
 
-2. Installing dependencies
+**2. Installing dependencies**
 * GUN binutils
 ```bash
 wget http://ftpmirror.gnu.org/binutils/binutils-2.21.1.tar.bz2
@@ -40,7 +40,7 @@ sudo apt-get -y install libncurses5:i386
 sudo apt-get -y install g++-multilib
 ```
 
-3. Installing bochs
+**3. Installing bochs**
 
 There is a sample script under`pintos-anon/src/misc`, add the **user path** for `SRCDIR`,`PINTOSDIR`, `DSTDIR`.
 
@@ -49,7 +49,8 @@ Run the script to install bochs.
 cd pintos-anon/src/misc
 sudo ./bochs-2.6.2-build.sh
 ```
-4. Installing pintos
+**4. Installing pintos**
+
 The bochs executable and the numerous script files for pintos need to be added to the environment variables.
 ```bash
 export PATH="~/bin:$PATH"
@@ -59,7 +60,7 @@ Or put them under the `usr/bin` path.
 
 Make sure these script files have executable permissions.
 
-5. Compiling pintos
+**5. Compiling pintos**
 ```bash
 cd ~/pintos-anon/src/utils
 ```
@@ -71,7 +72,7 @@ make
 ```
 Also squish* need to be added to the environment variables.
 
-6. Testing
+**6. Testing**
 ```bash
 cd ~/pintos-anon/src/threads
 make

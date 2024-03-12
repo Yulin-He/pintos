@@ -62,7 +62,7 @@ Make sure these script files have executable permissions.
 
 **5. Compiling pintos**
 ```bash
-cd ~/pintos-anon/src/utils
+cd pintos-anon/src/utils
 ```
 A little modification is needed here.
 * Makefile. change `LDFLAGS` to `LDLIBS`.
@@ -74,7 +74,7 @@ Also squish* need to be added to the environment variables.
 
 **6. Testing**
 ```bash
-cd ~/pintos-anon/src/threads
+cd pintos-anon/src/threads
 make
 cd build
 ```
@@ -84,7 +84,7 @@ pintos -- run alarm-multiple
 ```
 A more refined test can be performed using the following command.
 ```bash
-cd ~/pintos-anon/src/threads
+cd pintos-anon/src/threads
 make check
 ```
 

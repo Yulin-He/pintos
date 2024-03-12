@@ -24,7 +24,7 @@ tar xjf binutils-2.21.1.tar.bz2
 cd binutils-2.21.1
 ./configure --prefix=/usr/local --target=i386-elf --disable-werror
 make
-sudo make install # 这一步权限必不可少
+sudo make install 
 cd ..
 ```
 

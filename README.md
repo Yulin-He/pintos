@@ -1,7 +1,7 @@
 # pintos
 
 ## About
-Pintos is a simple operating system framework for the 80x86 architecture. It supports kernel threads, loading and running user programs, and a file system, but it implements all of these in a very simple way. Stanford provides related documentation at [Pintos Projects](https://web.stanford.edu/class/cs140/projects/pintos/pintos.html#SEC_Top).
+Pintos is a simple operating system framework for the 80x86 architecture. It supports kernel threads, loading and running user programs, and a file system, but it implements all of these in a very simple way. Stanford provides related documentation at [Pintos Projects](https://web.stanford.edu/class/cs140/projects/pintos/pintos.html#SEC_Top). The official course is on the website [CS 140](https://web.stanford.edu/~ouster/cgi-bin/cs140-spring20/index.php).
 
 ## Source Code
 Source code is adopted from the open source project at [Pintos](https://pintos-os.org/), which is updated from the source code provided in the documentation, especially the patch for the new version of bochs, and bochs-2.2.6 is no longer available for the latest gcc compiler. 

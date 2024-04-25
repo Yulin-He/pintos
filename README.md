@@ -52,9 +52,10 @@ sudo ./bochs-2.6.2-build.sh
 **4. Installing pintos**
 
 The bochs executable and the numerous script files for pintos need to be added to the environment variables.
+“/home/lemon/os” is my path for storing pintos.
 ```bash
-export PATH="~/bin:$PATH"
-export PATH="~/pintos-anon/src/utils:$PATH"
+export PATH="/home/lemon/os/bin:$PATH"
+export PATH="/home/lemon/os/pintos-anon/src/utils:$PATH"
 ```
 Or put them under the `usr/bin` path.
 

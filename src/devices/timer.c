@@ -33,7 +33,7 @@ static void real_time_delay(int64_t num, int32_t denom);
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
    and registers the corresponding interrupt. */
 void timer_init(void)
-{
+{ // 配置定时器以产生指定频率的中断，并注册相应的中断处理函数，以便在每次定时器中断发生时执行相应的操作
   pit_configure_channel(0, 2, TIMER_FREQ);
   intr_register_ext(0x20, timer_interrupt, "8254 Timer");
 }
@@ -86,12 +86,26 @@ timer_elapsed(int64_t then)
    be turned on. */
 void timer_sleep(int64_t ticks)
 {
-  int64_t start = timer_ticks();
-
+  if (ticks <= 0)
+  {
+    return;
+  }
   ASSERT(intr_get_level() == INTR_ON);
-  while (timer_elapsed(start) < ticks) // 在需要等待的时间内，不断地调用thread_yield
-    thread_yield();                    // 将当前线程标记为就绪状态，并将其加入就绪队列，然后调用调度器选择下一个要执行的线程进行调度
-} // 线程不断在cpu就绪队列和running队列之间来回
+  enum intr_level old_level = intr_disable();
+  struct thread *current_thread = thread_current();
+  current_thread->ticks_blocked = ticks;
+  thread_block();
+  intr_set_level(old_level);
+}
+
+// void timer_sleep(int64_t ticks)
+// {
+//   int64_t start = timer_ticks();
+
+//   ASSERT(intr_get_level() == INTR_ON);
+//   while (timer_elapsed(start) < ticks) // 在需要等待的时间内，不断地调用thread_yield
+//     thread_yield();                    // 将当前线程标记为就绪状态，并将其加入就绪队列，然后调用调度器选择下一个要执行的线程进行调度
+// } // 线程不断在cpu就绪队列和running队列之间来回
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
    turned on. */
@@ -161,6 +175,7 @@ static void
 timer_interrupt(struct intr_frame *args UNUSED)
 {
   ticks++;
+  thread_foreach(blocked_thread_check, NULL);
   thread_tick();
 }
 

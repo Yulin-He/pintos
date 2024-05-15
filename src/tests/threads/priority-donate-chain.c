@@ -1,4 +1,4 @@
-/* The main thread set its priority to PRI_MIN and creates 7 threads 
+/* The main thread set its priority to PRI_MIN and creates 7 threads
    (thread 1..7) with priorities PRI_MIN + 3, 6, 9, 12, ...
    The main thread initializes 8 locks: lock 0..7 and acquires lock 0.
 
@@ -14,15 +14,15 @@
    preempted by it.
    Thread[1] then completes acquiring lock[0], then releases lock[0],
    then releases lock[1], unblocking thread[2], etc.
-   Thread[7] finally acquires & releases lock[7] and exits, allowing 
-   thread[6], then thread[5] etc. to run and exit until finally the 
+   Thread[7] finally acquires & releases lock[7] and exits, allowing
+   thread[6], then thread[5] etc. to run and exit until finally the
    main thread exits.
 
    In addition, interloper threads are created at priority levels
-   p = PRI_MIN + 2, 5, 8, 11, ... which should not be run until the 
+   p = PRI_MIN + 2, 5, 8, 11, ... which should not be run until the
    corresponding thread with priority p + 1 has finished.
-  
-   Written by Godmar Back <gback@cs.vt.edu> */ 
+
+   Written by Godmar Back <gback@cs.vt.edu> */
 
 #include <stdio.h>
 #include "tests/threads/tests.h"
@@ -33,82 +33,83 @@
 #define NESTING_DEPTH 8
 
 struct lock_pair
-  {
-    struct lock *second;
-    struct lock *first;
-  };
+{
+  struct lock *second;
+  struct lock *first;
+};
 
 static thread_func donor_thread_func;
 static thread_func interloper_thread_func;
+/*测试的还是多层优先级捐赠逻辑的正确性
+需要注意：放掉一个锁之后， 如果当前线程不被捐赠即马上改为原来的优先级， 抢占式调度*/
 
-void
-test_priority_donate_chain (void) 
+void test_priority_donate_chain(void)
 {
-  int i;  
+  int i;
   struct lock locks[NESTING_DEPTH - 1];
-  struct lock_pair lock_pairs[NESTING_DEPTH];
+  struct lock_pair lock_pairs[NESTING_DEPTH]; // 锁链表
 
   /* This test does not work with the MLFQS. */
-  ASSERT (!thread_mlfqs);
+  ASSERT(!thread_mlfqs);
 
-  thread_set_priority (PRI_MIN);
+  thread_set_priority(PRI_MIN);
 
   for (i = 0; i < NESTING_DEPTH - 1; i++)
-    lock_init (&locks[i]);
+    lock_init(&locks[i]);
 
-  lock_acquire (&locks[0]);
-  msg ("%s got lock.", thread_name ());
+  lock_acquire(&locks[0]); // 主线程获取锁[0]
+  msg("%s got lock.", thread_name());
 
   for (i = 1; i < NESTING_DEPTH; i++)
-    {
-      char name[16];
-      int thread_priority;
+  { // 每次循环thread_priority为PRI_MIN+i*3， 也就是3,6,9,12... 然后对应的lock_pairs[i]的first记录locks[i]的指针， second记录locks[i-1]指针，
+    char name[16];
+    int thread_priority;
 
-      snprintf (name, sizeof name, "thread %d", i);
-      thread_priority = PRI_MIN + i * 3;
-      lock_pairs[i].first = i < NESTING_DEPTH - 1 ? locks + i: NULL;
-      lock_pairs[i].second = locks + i - 1;
+    snprintf(name, sizeof name, "thread %d", i);
+    thread_priority = PRI_MIN + i * 3;
+    lock_pairs[i].first = i < NESTING_DEPTH - 1 ? locks + i : NULL;
+    lock_pairs[i].second = locks + i - 1;
 
-      thread_create (name, thread_priority, donor_thread_func, lock_pairs + i);
-      msg ("%s should have priority %d.  Actual priority: %d.",
-          thread_name (), thread_priority, thread_get_priority ());
+    thread_create(name, thread_priority, donor_thread_func, lock_pairs + i); // 每次循环都会抢占调用donor_thread_func， 然后分别获取lock_pairs[i]里装的锁
+    msg("%s should have priority %d.  Actual priority: %d.",
+        thread_name(), thread_priority, thread_get_priority());
 
-      snprintf (name, sizeof name, "interloper %d", i);
-      thread_create (name, thread_priority - 1, interloper_thread_func, NULL);
-    }
+    snprintf(name, sizeof name, "interloper %d", i);
+    thread_create(name, thread_priority - 1, interloper_thread_func, NULL); // 创建线程
+  }
 
-  lock_release (&locks[0]);
-  msg ("%s finishing with priority %d.", thread_name (),
-                                         thread_get_priority ());
+  lock_release(&locks[0]); // 释放锁[0]，唤醒threa1...
+  msg("%s finishing with priority %d.", thread_name(),
+      thread_get_priority());
 }
 
 static void
-donor_thread_func (void *locks_) 
+donor_thread_func(void *locks_)
 {
   struct lock_pair *locks = locks_;
+  // 先获取first, 即locks[i], 然后获取second
+  if (locks->first)
+    lock_acquire(locks->first);
+
+  lock_acquire(locks->second);
+  msg("%s got lock", thread_name());
+
+  lock_release(locks->second);
+  msg("%s should have priority %d. Actual priority: %d",
+      thread_name(), (NESTING_DEPTH - 1) * 3,
+      thread_get_priority());
 
   if (locks->first)
-    lock_acquire (locks->first);
+    lock_release(locks->first);
 
-  lock_acquire (locks->second);
-  msg ("%s got lock", thread_name ());
-
-  lock_release (locks->second);
-  msg ("%s should have priority %d. Actual priority: %d", 
-        thread_name (), (NESTING_DEPTH - 1) * 3,
-        thread_get_priority ());
-
-  if (locks->first)
-    lock_release (locks->first);
-
-  msg ("%s finishing with priority %d.", thread_name (),
-                                         thread_get_priority ());
+  msg("%s finishing with priority %d.", thread_name(),
+      thread_get_priority());
 }
 
 static void
-interloper_thread_func (void *arg_ UNUSED)
+interloper_thread_func(void *arg_ UNUSED)
 {
-  msg ("%s finished.", thread_name ());
+  msg("%s finished.", thread_name());
 }
 
 // vim: sw=2

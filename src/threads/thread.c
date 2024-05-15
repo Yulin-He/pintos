@@ -198,6 +198,12 @@ tid_t thread_create(const char *name, int priority,
   /* Add to run queue. */
   thread_unblock(t);
 
+  /* 检查新创建的线程优先级是否高于主线程(thread_current) */
+  if (thread_current()->priority < priority)
+  {
+    thread_yield();
+  }
+
   return tid;
 }
 
@@ -216,6 +222,12 @@ void thread_block(void)
   schedule();
 }
 
+/* priority compare function. */
+bool thread_cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+  return list_entry(a, struct thread, elem)->priority > list_entry(b, struct thread, elem)->priority;
+}
+
 /* Transitions a blocked thread T to the ready-to-run state.
    This is an error if T is not blocked.  (Use thread_yield() to
    make the running thread ready.)
@@ -232,7 +244,8 @@ void thread_unblock(struct thread *t)
 
   old_level = intr_disable();
   ASSERT(t->status == THREAD_BLOCKED);
-  list_push_back(&ready_list, &t->elem);
+  // list_push_back(&ready_list, &t->elem);
+  list_insert_ordered(&ready_list, &t->elem, (list_less_func *)&thread_cmp_priority, NULL);
   t->status = THREAD_READY;
   intr_set_level(old_level);
 }
@@ -305,7 +318,7 @@ void thread_exit(void)
 /* Yields the CPU.  The current thread is not put to sleep and
    may be scheduled again immediately at the scheduler's whim. */
 void thread_yield(void)
-{
+{ // 将当前线程标记为就绪状态，并将其加入到就绪队列中，然后调用schedule()选择下一个要执行的线程进行调度
   struct thread *cur = thread_current();
   enum intr_level old_level;
 
@@ -313,7 +326,8 @@ void thread_yield(void)
 
   old_level = intr_disable();
   if (cur != idle_thread)
-    list_push_back(&ready_list, &cur->elem);
+    // list_push_back(&ready_list, &cur->elem);
+    list_insert_ordered(&ready_list, &cur->elem, (list_less_func *)&thread_cmp_priority, NULL);
   cur->status = THREAD_READY;
   schedule();
   intr_set_level(old_level);
@@ -338,8 +352,28 @@ void thread_foreach(thread_action_func *func, void *aux)
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority)
 {
-  thread_current()->priority = new_priority;
+  if (thread_mlfqs)
+    return;
+
+  enum intr_level old_level = intr_disable();
+
+  struct thread *current_thread = thread_current();
+  int old_priority = current_thread->priority;
+  current_thread->base_priority = new_priority;
+
+  if (list_empty(&current_thread->locks) || new_priority > old_priority)
+  {
+    current_thread->priority = new_priority;
+    thread_yield();
+  }
+
+  intr_set_level(old_level);
 }
+// void thread_set_priority(int new_priority)
+// {
+//   thread_current()->priority = new_priority;
+//   thread_yield(); // 确保在改变当前线程的优先级后，系统能够及时重新调度线程，以便根据新的优先级重新安排线程的执行顺序。
+// }
 
 /* Returns the current thread's priority. */
 int thread_get_priority(void)
@@ -461,9 +495,13 @@ init_thread(struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *)t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  t->base_priority = priority;
+  list_init(&t->locks);
+  t->lock_waiting = NULL;
 
   old_level = intr_disable();
-  list_push_back(&all_list, &t->allelem);
+  // list_push_back(&all_list, &t->allelem);
+  list_insert_ordered(&all_list, &t->allelem, (list_less_func *)&thread_cmp_priority, NULL);
   intr_set_level(old_level);
 }
 
@@ -569,13 +607,27 @@ allocate_tid(void)
   static tid_t next_tid = 1;
   tid_t tid;
 
-  lock_acquire(&tid_lock);
-  tid = next_tid++;
+  lock_acquire(&tid_lock); // 一个互斥锁（mutex lock），用于保护 next_tid 的访问，以确保在多线程环境中对 next_tid 的操作是原子的
+  tid = next_tid++;        // 确保对 next_tid 的递增操作是原子的，即在任意时刻只有一个线程可以修改 next_tid
   lock_release(&tid_lock);
-
+  // 确保每个线程都能够获得一个唯一的线程 ID，通过加锁和解锁操作，保证了在获取新的线程 ID 时不会发生重复分配的情况。
   return tid;
 }
 
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof(struct thread, stack);
+
+/* Donate current priority to thread t. */
+void thread_donate_priority(struct thread *t)
+{
+  enum intr_level old_level = intr_disable();
+  thread_update_priority(t); // 更新当前线程的优先级
+
+  if (t->status == THREAD_READY)
+  {
+    list_remove(&t->elem);                                                 // 如果线程t当前处于就绪状态，即可以立即运行，则需要将其从就绪队列中移除，并重新插入到就绪队列中
+    list_insert_ordered(&ready_list, &t->elem, thread_cmp_priority, NULL); // 按照线程优先级有序地重新插入线程t到就绪队列中(重插入是考虑性能问题)
+  }
+  intr_set_level(old_level);
+}
